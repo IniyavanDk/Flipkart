@@ -1,0 +1,74 @@
+from bs4 import BeautifulSoup
+from urllib.request import urlopen
+import regex as re
+import requests
+import easygui
+from tkinter import *
+import ctypes
+import json
+
+
+def get_input():
+    # url = input("Enter Product URL: ")
+    url = easygui.enterbox("Enter Product URL from Flipkart: ")
+    return url
+
+
+def get_comments(url):
+    str_url = str(url)
+    page = urlopen(str_url)
+    html = page.read().decode("utf-8")
+    soup = BeautifulSoup(html, "html.parser")
+    # print(soup.findAll('div'))
+    comments = soup.find_all("div", {"class": "t-ZTKy"})
+    str_comments = str(comments)
+    regex = re.compile(r'<[^>]+>')
+
+    def remove_html(string):
+        return regex.sub('', string)
+
+    new_text = remove_html(str_comments)
+    return new_text
+
+
+def format_url(url):
+    str_url = str(url)
+    new_url = str_url.replace("/p/", "/product-reviews/")
+    end_idx = new_url.find("&q=")
+    new_url = new_url[:end_idx]
+    return new_url
+
+
+def build_url_list(new_url, start_page_num):
+    page_url = new_url + "&page=" + start_page_num
+    return page_url
+
+
+def __main():
+    url_list = []
+    comments_list = []
+    start_page_num = 1
+    end_page_num = 2
+    url = get_input()
+    new_url = format_url(url)
+    while start_page_num <= end_page_num:
+        page_url = build_url_list(str(new_url), str(start_page_num))
+        url_list.append(page_url)
+        str_comments = get_comments(url_list[(start_page_num - 1)])
+        comments_list.append(str_comments)
+        start_page_num += 1
+    # print(comments_list)
+    r = requests.post(
+        "https://api.deepai.org/api/text-generator",
+        data={
+            'text': comments_list,
+        },
+        headers={'api-key': '967bc701-5727-490f-a0e2-fdd03a1a02f5'})
+    # print(r.json())
+    get_ai_op = json.dumps(r.json())
+    get_ai_op_dict = json.loads(get_ai_op)
+    # print(get_ai_op_dict)
+    # print(get_ai_op_dict["output"])
+    ctypes.windll.user32.MessageBoxW(0, get_ai_op_dict["output"], "Flipkart Comment Summary", 1)
+
+__main()
